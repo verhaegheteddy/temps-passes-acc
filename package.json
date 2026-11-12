@@ -1,0 +1,83 @@
+{
+  "name": "temps-passes",
+  "version": "1.0.0",
+  "description": "Synchronisation des temps passés Notion et génération de rapports",
+  "main": "src/main/main.js",
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test test/*.test.js",
+    "smoke": "electron test/ui-smoke.js",
+    "dist": "electron-builder",
+    "dist:win": "electron-builder --win nsis portable --publish never",
+    "dist:linux": "electron-builder --linux flatpak --publish never"
+  },
+  "license": "UNLICENSED",
+  "type": "module",
+  "devDependencies": {
+    "electron": "^45.3.1",
+    "electron-builder": "^26.18.0"
+  },
+  "dependencies": {
+    "exceljs": "^4.4.0"
+  },
+  "productName": "Temps passés",
+  "private": true,
+  "build": {
+    "appId": "fr.accenta.temps-passes",
+    "productName": "Temps passés",
+    "artifactName": "temps-passes-${version}-${os}-${arch}.${ext}",
+    "files": [
+      "src/**/*",
+      "package.json"
+    ],
+    "asar": true,
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ],
+      "icon": "build/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "artifactName": "temps-passes-${version}-setup.${ext}",
+      "shortcutName": "Temps passés"
+    },
+    "linux": {
+      "target": [
+        "flatpak"
+      ],
+      "category": "Office",
+      "executableName": "temps-passes",
+      "icon": "build/icon.png",
+      "synopsis": "Temps passés Notion : synchronisation, rapports et statistiques"
+    },
+    "directories": {
+      "buildResources": "build",
+      "output": "dist"
+    },
+    "flatpak": {
+      "runtimeVersion": "26.08",
+      "baseVersion": "26.08",
+      "finishArgs": [
+        "--socket=wayland",
+        "--socket=fallback-x11",
+        "--share=ipc",
+        "--device=dri",
+        "--share=network",
+        "--talk-name=org.freedesktop.secrets",
+        "--filesystem=xdg-documents",
+        "--filesystem=xdg-download"
+      ]
+    },
+    "portable": {
+      "artifactName": "temps-passes-${version}-portable.${ext}"
+    }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:verhaegheteddy/temps-passes-acc.git"
+  }
+}

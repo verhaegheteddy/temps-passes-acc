@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:" />
+    <title>Temps passés</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">Temps passés</div>
+      <nav class="tabs" role="tablist">
+        <button role="tab" data-tab="report" aria-selected="true">Rapport</button>
+        <button role="tab" data-tab="stats">Stats</button>
+        <button role="tab" data-tab="people">Personnes</button>
+        <button role="tab" data-tab="sync">Synchronisation <span id="conflict-badge" class="badge" hidden></span></button>
+        <button role="tab" data-tab="closures">Clôtures</button>
+        <button role="tab" data-tab="settings">Paramètres</button>
+      </nav>
+      <div class="status">
+        <span id="status-lock" class="pill"></span>
+        <span id="status-sync" class="muted"></span>
+        <button id="btn-quick-sync" class="btn small">Synchroniser</button>
+      </div>
+    </header>
+
+    <div id="progress" class="progress" hidden>
+      <div class="progress-text" id="progress-text"></div>
+      <button id="btn-cancel-sync" class="btn small ghost">Annuler</button>
+    </div>
+    <div id="toast" class="toast" hidden></div>
+
+    <main>
+      <!-- RAPPORT -->
+      <section id="tab-report" class="tab">
+        <div class="card">
+          <form id="report-form" class="report-form">
+            <div class="row">
+              <label>Du <input type="date" name="start" required /></label>
+              <label>Au <input type="date" name="end" required /></label>
+              <div class="presets">
+                <button type="button" class="btn small ghost" data-preset="prev-month">Mois dernier</button>
+                <button type="button" class="btn small ghost" data-preset="this-month">Ce mois-ci</button>
+                <button type="button" class="btn small ghost" data-preset="prev-year">Année dernière</button>
+                <button type="button" class="btn small ghost" data-preset="this-year">Cette année</button>
+              </div>
+            </div>
+            <div class="row">
+              <label>Précision
+                <select name="precision">
+                  <option value="topic">Sujet</option>
+                  <option value="subtopic">Sous-sujet</option>
+                  <option value="task" selected>Tâche</option>
+                </select>
+              </label>
+              <label class="check"><input type="checkbox" name="byPerson" checked /> Détail par personne</label>
+            </div>
+            <div class="tag-filters" id="tag-filters"></div>
+            <p class="hint">Filtre par tags : une ligne est retenue si elle porte <strong>au moins un</strong> des tags sélectionnés (toutes catégories confondues). Aucune sélection = pas de filtre.</p>
+            <div class="actions">
+              <button type="submit" class="btn primary">Afficher</button>
+              <button type="button" id="btn-export" class="btn">Exporter XLSX</button>
+            </div>
+          </form>
+        </div>
+        <div id="report-result"></div>
+      </section>
+
+      <!-- STATS -->
+      <section id="tab-stats" class="tab" hidden>
+        <div class="card">
+          <form id="stats-form" class="row">
+            <label>Du <input type="date" name="start" required /></label>
+            <label>Au <input type="date" name="end" required /></label>
+            <div class="presets">
+              <button type="button" class="btn small ghost" data-spreset="prev-month">Mois dernier</button>
+              <button type="button" class="btn small ghost" data-spreset="this-month">Ce mois-ci</button>
+              <button type="button" class="btn small ghost" data-spreset="last-3">3 derniers mois</button>
+              <button type="button" class="btn small ghost" data-spreset="prev-year">Année dernière</button>
+              <button type="button" class="btn small ghost" data-spreset="this-year">Cette année</button>
+            </div>
+            <button type="submit" class="btn primary">Afficher</button>
+          </form>
+          <details class="settings-inline">
+            <summary>Réglages du temps attendu</summary>
+            <form id="time-settings" class="row">
+              <label>Unité du « Temps passé » Notion
+                <select name="unit"><option value="day">Jours</option><option value="hour">Heures</option></select>
+              </label>
+              <label>Temps attendu par jour ouvré <input type="number" name="perDay" step="0.05" min="0" /></label>
+              <label class="check"><input type="checkbox" name="pentecostWorked" /> Lundi de Pentecôte travaillé (journée de solidarité)</label>
+              <button type="submit" class="btn">Enregistrer</button>
+            </form>
+            <p class="hint">Jours ouvrés = lundi-vendredi hors jours fériés français. Le temps attendu n'est compté que jusqu'à aujourd'hui. Chaque personne peut avoir sa propre valeur (temps partiel) et des dates d'arrivée/départ dans le tableau ci-dessous. Sans date d'arrivée, on part de sa première saisie.</p>
+          </details>
+        </div>
+        <div id="stats-result"></div>
+      </section>
+
+      <!-- PERSONNES -->
+      <section id="tab-people" class="tab" hidden>
+        <div class="card">
+          <h2>Rattacher les identifiants Notion à une personne</h2>
+          <p class="hint">Notion ne fournit plus l'e-mail des membres qui ont quitté l'espace : leurs temps passés apparaissent sous un identifiant (UUID).
+            Saisissez ici l'e-mail de la personne correspondante ; ses temps seront regroupés avec les siens dans les rapports et les stats.
+            Ça sert aussi à fusionner deux adresses d'une même personne (changement de domaine, par exemple).
+            Les périodes déjà clôturées gardent, dans les rapports, l'identité figée au moment de la clôture.</p>
+          <div class="row">
+            <label class="grow">Rechercher <input type="search" id="id-filter" placeholder="Identifiant, e-mail, sous-sujet…" /></label>
+            <label class="check"><input type="checkbox" id="id-only-missing" checked /> Uniquement les identifiants sans e-mail ou déjà rattachés</label>
+          </div>
+          <p class="muted" id="id-summary"></p>
+          <datalist id="known-emails"></datalist>
+          <div id="id-table"></div>
+        </div>
+      </section>
+
+      <!-- SYNCHRO -->
+      <section id="tab-sync" class="tab" hidden>
+        <div class="card">
+          <h2>Cache local</h2>
+          <table class="grid" id="sync-table"></table>
+          <div class="actions">
+            <button class="btn primary" id="btn-sync">Synchroniser (modifications récentes)</button>
+            <button class="btn" id="btn-sync-full">Synchronisation complète</button>
+          </div>
+          <p class="hint">La synchronisation complète relit toutes les bases (pour les temps passés : uniquement la période non clôturée) et supprime du cache les pages supprimées dans Notion. À lancer de temps en temps, et avant une clôture.</p>
+          <pre id="sync-log" class="log" hidden></pre>
+        </div>
+        <div class="card">
+          <div class="card-head">
+            <h2>Modifications Notion sur des périodes clôturées</h2>
+            <label class="check"><input type="checkbox" id="show-acked" /> Afficher aussi les conflits vus</label>
+          </div>
+          <p class="hint">Ces modifications ont été <strong>ignorées</strong> : les rapports publiés ne changent pas. Elles sont listées pour que vous puissiez corriger Notion si besoin.</p>
+          <div id="conflicts"></div>
+        </div>
+      </section>
+
+      <!-- CLOTURES -->
+      <section id="tab-closures" class="tab" hidden>
+        <div class="card">
+          <h2>Clôturer une période</h2>
+          <p id="lock-summary"></p>
+          <div class="row">
+            <label>Clôturer jusqu'à la fin de <input type="month" id="close-month" /></label>
+            <button class="btn" id="btn-close-preview">Aperçu</button>
+            <span class="muted">ou</span>
+            <label>l'année <select id="close-year"></select></label>
+            <button class="btn" id="btn-close-year-preview">Aperçu</button>
+          </div>
+          <div id="close-preview"></div>
+          <p class="hint">Une fois clôturées, les lignes sont figées telles quelles (temps, personne, tâche, sous-sujet, sujet et tags). Les modifications faites ensuite dans Notion sur ces dates sont ignorées et signalées.</p>
+        </div>
+        <div class="card">
+          <h2>Rouvrir</h2>
+          <div class="row">
+            <label>Rouvrir tout ce qui suit la fin de <input type="month" id="reopen-month" /></label>
+            <button class="btn danger" id="btn-reopen">Rouvrir</button>
+            <button class="btn danger ghost" id="btn-reopen-all">Tout rouvrir</button>
+          </div>
+          <p class="hint">À réserver aux corrections exceptionnelles : les rapports déjà publiés sur cette période pourront changer. Une synchronisation complète est ensuite lancée automatiquement.</p>
+        </div>
+        <div class="card">
+          <h2>Historique</h2>
+          <div id="closure-history"></div>
+        </div>
+      </section>
+
+      <!-- PARAMETRES -->
+      <section id="tab-settings" class="tab" hidden>
+        <div class="card">
+          <h2>Connexion Notion</h2>
+          <p class="hint">Créez une intégration interne sur <code>notion.so/profile/integrations</code> avec les capacités « Lire le contenu » et « Lire les informations des utilisateurs, y compris l'e-mail », puis partagez-lui les 5 bases (menu ⋯ › Connexions).</p>
+          <form id="token-form" class="row">
+            <label class="grow">Token d'intégration <input type="password" name="token" autocomplete="off" placeholder="ntn_…" /></label>
+            <button class="btn primary" type="submit">Enregistrer le token</button>
+          </form>
+          <p id="token-status" class="muted"></p>
+        </div>
+        <div class="card">
+          <div class="card-head">
+            <h2>Bases et propriétés</h2>
+            <button class="btn" id="btn-inspect">Lire les bases dans Notion</button>
+          </div>
+          <form id="db-form"></form>
+          <div class="actions"><button class="btn primary" id="btn-save-dbs">Enregistrer</button></div>
+        </div>
+        <div class="card">
+          <h2>Données locales</h2>
+          <p class="muted" id="data-path"></p>
+          <button class="btn" id="btn-data-folder">Ouvrir le dossier</button>
+        </div>
+      </section>
+    </main>
+
+    <script type="module" src="app.js"></script>
+  </body>
+</html>
